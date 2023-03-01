@@ -1058,6 +1058,9 @@ extern const file_hint_t file_hint_xpt;
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xv)
 extern const file_hint_t file_hint_xv;
 #endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xvd)
+extern const file_hint_t file_hint_xvd;
+#endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xz)
 extern const file_hint_t file_hint_xz;
 #endif
@@ -2105,6 +2108,9 @@ file_enable_t array_file_enable[]=
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xv)
   { .enable=0, .file_hint=&file_hint_xv   },
+#endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xvd)
+  { .enable=0, .file_hint=&file_hint_xvd  },
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xz)
   { .enable=0, .file_hint=&file_hint_xz   },
