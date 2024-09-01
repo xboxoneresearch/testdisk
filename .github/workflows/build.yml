@@ -11,6 +11,9 @@ jobs:
       - name: Install cygwin
         uses: cygwin/cygwin-install-action@master
         with:
-          packages: cygwin64-binutils,cygwin64-filesystem,cygwin64-e2fsprogs,cygwin64-gcc,cygwin64-libewf,cygwin64-libjpeg-turbo,cygwin64-ntfsprogs,cygwin64-ncurses,cygwin64-libiconv,cygwin64-zlib,cygwin64-pkg-config
-      - name: Run build
-        run: bash .github/build.sh
+          packages: binutils,filesystem,e2fsprogs,gcc,libewf,libjpeg-turbo,ntfsprogs,ncurses,libiconv,zlib,pkg-config
+      - name: Autogen
+        run: bash autogen.sh
+      - name: Compile
+        run: bash compile.sh
+  
