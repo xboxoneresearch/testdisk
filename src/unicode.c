@@ -28,9 +28,13 @@
 #include "common.h"
 #include "unicode.h"
 
-int UCSle2str(char *to, const uint16_t *from, const unsigned int len)
+unsigned int UCSle2str(char *to, const uint16_t *from, const unsigned int len)
 {
   unsigned int i;
+  /*@
+    @ loop assigns i, to[0 .. i];
+    @ loop variant len - i;
+    @*/
   for (i = 0; i < len && le16(from[i])!=0; i++)
   {
     if (le16(from[i]) & 0xff00)
@@ -43,9 +47,13 @@ int UCSle2str(char *to, const uint16_t *from, const unsigned int len)
   return i;
 }
 
-int str2UCSle(uint16_t *to, const char *from, const unsigned int len)
+unsigned int str2UCSle(uint16_t *to, const char *from, const unsigned int len)
 {
   unsigned int i;
+  /*@
+    @ loop assigns i, to[0 .. i];
+    @ loop variant len - i;
+    @*/
   for (i = 0; (i < len) && from[i]; i++)
   {
     to[i] = le16(from[i]);

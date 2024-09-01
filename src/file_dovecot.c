@@ -46,15 +46,15 @@ const file_hint_t file_hint_dovecot= {
 /*@
   @ requires file_recovery->data_check==&data_check_dovecot2;
   @ requires valid_data_check_param(buffer, buffer_size, file_recovery);
+  @ terminates \true;
   @ ensures  valid_data_check_result(\result, file_recovery);
   @ ensures \result == DC_CONTINUE || \result == DC_ERROR;
   @ assigns file_recovery->data_check;
   @*/
 static data_check_t data_check_dovecot2(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
-  /*@
-    @ loop assigns file_recovery->data_check;
-    @*/
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
   if(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 2 <= file_recovery->file_size + buffer_size/2)
   {
@@ -71,6 +71,7 @@ static data_check_t data_check_dovecot2(const unsigned char *buffer, const unsig
 /*@
   @ requires file_recovery->data_check==&data_check_dovecot;
   @ requires valid_data_check_param(buffer, buffer_size, file_recovery);
+  @ terminates \true;
   @ ensures  valid_data_check_result(\result, file_recovery);
   @ ensures \result == DC_CONTINUE || \result == DC_ERROR;
   @ assigns file_recovery->calculated_file_size, file_recovery->data_check;
@@ -80,6 +81,7 @@ static data_check_t data_check_dovecot(const unsigned char *buffer, const unsign
   unsigned int i;
   /*@
     @ loop assigns i;
+    @ loop variant buffer_size - i;
     @*/
   for(i=buffer_size/2;
       i<buffer_size && file_recovery->calculated_file_size+i <= 0x14000;
@@ -100,6 +102,7 @@ static data_check_t data_check_dovecot(const unsigned char *buffer, const unsign
 
 /*@
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @*/
 static int header_check_dovecot(const unsigned char *buffer, const unsigned int buffer_size, const unsigned int safe_header_only, const file_recovery_t *file_recovery, file_recovery_t *file_recovery_new)

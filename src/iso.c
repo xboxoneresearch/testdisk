@@ -60,6 +60,7 @@ static int test_ISO(const struct iso_primary_descriptor *iso)
 int check_ISO(disk_t *disk_car, partition_t *partition)
 {
   unsigned char *buffer=(unsigned char*)MALLOC(ISO_PD_SIZE);
+  /*@ assert \valid(buffer + (0 .. ISO_PD_SIZE-1)); */
   if(disk_car->pread(disk_car, buffer, ISO_PD_SIZE, partition->part_offset + 64 * 512) != ISO_PD_SIZE)
   {
     free(buffer);
@@ -82,7 +83,7 @@ static void set_ISO_info(const struct iso_primary_descriptor *iso, partition_t *
   const unsigned int logical_block_size_le=le16(iso->logical_block_size_le);
   const unsigned int logical_block_size_be=be16(iso->logical_block_size_be);
   partition->upart_type=UP_ISO;
-  set_part_name_chomp(partition, (const unsigned char*)iso->volume_id, 32);
+  set_part_name_chomp(partition, (const char*)iso->volume_id, 32);
   if(volume_space_size_le==volume_space_size_be && logical_block_size_le==logical_block_size_be)
   {
     partition->blocksize=logical_block_size_le;
@@ -98,6 +99,8 @@ int recover_ISO(const struct iso_primary_descriptor *iso, partition_t *partition
   if(test_ISO(iso)!=0)
     return 1;
   set_ISO_info(iso, partition);
+  /*@ assert \valid_read(iso); */
+  /*@ assert \valid(partition); */
   {
     const unsigned int volume_space_size_le=le32(iso->volume_space_size_le);
     const unsigned int volume_space_size_be=be32(iso->volume_space_size_be);

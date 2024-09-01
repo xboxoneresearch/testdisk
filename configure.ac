@@ -2,11 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT([testdisk],[7.2-WIP],[grenier@cgsecurity.org])
+AC_INIT([testdisk],[7.2],[grenier@cgsecurity.org])
 AC_LANG(C)
 sinclude(acx_pthread.m4)
 sinclude(mkdir.m4)
-TESTDISKDATE="February 2023"
+TESTDISKDATE="February 2024"
 AC_SUBST(TESTDISKDATE)
 AC_DEFINE_UNQUOTED([TESTDISKDATE],"$TESTDISKDATE",[Date of release])
 AC_CONFIG_AUX_DIR(config)
@@ -330,7 +330,7 @@ AC_SYS_LARGEFILE
 AC_HEADER_STDC
 #AC_CHECK_HEADERS([sys/types.h sys/stat.h stdlib.h stdint.h unistd.h])
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([byteswap.h curses.h cygwin/fs.h cygwin/version.h dal/file_dal.h dal/file.h ddk/ntddstor.h dirent.h endian.h errno.h fcntl.h features.h giconv.h glob.h iconv.h io.h libgen.h limits.h linux/fs.h linux/hdreg.h linux/types.h locale.h machine/endian.h malloc.h ncurses.h ncurses/curses.h ncurses/ncurses.h ncursesw/curses.h ncursesw/ncurses.h ntfs/version.h pwd.h scsi/scsi.h scsi/scsi_ioctl.h scsi/sg.h setjmp.h signal.h stdarg.h sys/cygwin.h sys/disk.h sys/disklabel.h sys/dkio.h sys/endian.h sys/ioctl.h sys/param.h sys/select.h sys/time.h sys/utsname.h sys/vtoc.h time.h utime.h w32api/ddk/ntdddisk.h windef.h windows.h zlib.h])
+AC_CHECK_HEADERS([byteswap.h curses.h cygwin/fs.h cygwin/version.h dal/file_dal.h dal/file.h ddk/ntddstor.h dirent.h endian.h errno.h fcntl.h features.h giconv.h glob.h iconv.h io.h libgen.h limits.h linux/fs.h linux/hdreg.h linux/types.h locale.h machine/endian.h malloc.h ncurses.h ncurses/curses.h ncurses/ncurses.h ncursesw/curses.h ncursesw/ncurses.h ntfs/version.h pwd.h scsi/scsi.h scsi/scsi_ioctl.h scsi/sg.h setjmp.h signal.h stdarg.h sys/cygwin.h sys/disk.h sys/disklabel.h sys/dkio.h sys/endian.h sys/ioctl.h sys/sysmacros.h sys/param.h sys/select.h sys/time.h sys/utsname.h sys/vtoc.h time.h utime.h w32api/ddk/ntdddisk.h windef.h windows.h zlib.h])
 
 #--------------------------------------------------------------------
 # Check for iconv support (for Unicode conversion).
@@ -486,6 +486,11 @@ AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
 AC_STRUCT_ST_BLOCKS
 AC_STRUCT_TM
+AC_CHECK_TYPE(
+ [paddr_t],
+ [AC_DEFINE( [HAVE_PADDR_T], [1], [Define to 1 if paddr_t is available])],
+ [AC_DEFINE( [HAVE_PADDR_T], [0], [Define to 0 if paddr_t is not available])])
+
 AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_MEMBERS([dal_t.block_size],,,[#include <dal/dal.h>])
@@ -571,13 +576,16 @@ fi
 
 if test "x$use_ext2fs" != "xno"; then
 if test "x$with_ext2fs" != "xno"; then
+  ac_save_LIBS="$LIBS"
   AC_CHECK_LIB(com_err,com_err,[
       AC_DEFINE([HAVE_LIBCOMM_ERR],1,[Define to 1 if you have the com_err library (-lcom_err).])
       if test "${com_err_lib_a}" = ""; then
+	LIBS="-lcom_err $LIBS"
         photorec_LDADD="-lcom_err $photorec_LDADD"
         qphotorec_LDADD="-lcom_err $qphotorec_LDADD"
         testdisk_LDADD="-lcom_err $testdisk_LDADD"
       else
+	LIBS="${com_err_lib_a} $LIBS"
         photorec_LDADD="${com_err_lib_a} $photorec_LDADD"
         qphotorec_LDADD="${com_err_lib_a} $qphotorec_LDADD"
         testdisk_LDADD="${com_err_lib_a} $testdisk_LDADD"
@@ -588,18 +596,18 @@ if test "x$with_ext2fs" != "xno"; then
   AC_CHECK_LIB(ext2fs,ext2fs_open,[
       AC_DEFINE([HAVE_LIBEXT2FS],1,[Define to 1 if you have the ext2fs library (-lext2fs).])
       if test "${ext2fs_lib_a}" = ""; then
+	LIBS="-lext2fs $LIBS"
         photorec_LDADD="-lext2fs $photorec_LDADD"
         qphotorec_LDADD="-lext2fs $qphotorec_LDADD"
         testdisk_LDADD="-lext2fs $testdisk_LDADD"
       else
+	LIBS="${ext2fs_lib_a} $LIBS"
         photorec_LDADD="${ext2fs_lib_a} $photorec_LDADD"
         qphotorec_LDADD="${ext2fs_lib_a} $qphotorec_LDADD"
         testdisk_LDADD="${ext2fs_lib_a} $testdisk_LDADD"
       fi
       have_ext2fs=yes
       ],AC_MSG_WARN(No ext2fs library detected))
-  ac_save_LIBS="$LIBS"
-  LIBS="$LIBS $testdisk_LDADD"
   AC_CHECK_FUNCS([ext2fs_get_generic_bitmap_start])
   LIBS="$ac_save_LIBS"
 else

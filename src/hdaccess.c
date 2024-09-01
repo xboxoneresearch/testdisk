@@ -36,6 +36,7 @@
 #undef HAVE_SCSI_SG_H
 #undef HAVE_SYS_MOUNT_H
 #undef HAVE_SYS_PARAM_H
+#undef HAVE_SYS_SYSMACROS_H
 #endif
  
 #ifdef HAVE_SYS_STAT_H
@@ -81,6 +82,9 @@
 #ifdef HAVE_SYS_DKIO_H
 #include <sys/dkio.h>
 #endif
+#ifdef HAVE_SYS_SYSMACROS_H
+#include <sys/sysmacros.h>
+#endif
 /* linux/fs.h may not be needed because sys/mount.h is present */
 /* #ifdef HAVE_LINUX_FS_H */
 /* #include <linux/fs.h> */
@@ -104,6 +108,9 @@
 #include <ctype.h>	/* isspace */
 #ifdef HAVE_GLOB_H
 #include <glob.h>
+#endif
+#ifdef HAVE_LIBGEN_H
+#include <libgen.h>
 #endif
 
 #if defined(__CYGWIN__) || defined(__MINGW32__)
@@ -312,6 +319,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
       list_disk=insert_new_disk(list_disk, file_test_availability(device, verbose, testdisk_mode));
     }
   }
+#elif defined(DISABLED_FOR_FRAMAC)
 #elif defined(TARGET_LINUX)
   {
     int j;
@@ -326,6 +334,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 8;
+      @ loop variant 8 - i;
       @*/
     for(i=0;i<8;i++)
     {
@@ -336,6 +345,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= j <= 8;
+      @ loop variant 8 - j;
       @*/
     for(j=0;j<8;j++)
     {
@@ -343,6 +353,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
       /*@
 	@ loop invariant valid_list_disk(list_disk);
 	@ loop invariant 0 <= i <= 8;
+	@ loop variant 8 - i;
 	@*/
       for(i=0;i<8;i++)
       {
@@ -353,6 +364,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 8;
+      @ loop variant 8 - i;
       @*/
     for(i=0;i<8;i++)
     {
@@ -363,6 +375,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 10;
+      @ loop variant 10 - i;
       @*/
     for(i=0;i<10;i++)
     {
@@ -373,6 +386,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 15;
+      @ loop variant 15 - i;
       @*/
     for(i=0;i<15;i++)
     {
@@ -383,6 +397,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 4;
+      @ loop variant 4 - i;
       @*/
     for(i=0;i<4;i++)
     {
@@ -393,6 +408,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 26;
+      @ loop variant 26 - i;
       @*/
     for(i=0;i<26;i++)
     {
@@ -403,6 +419,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
     /*@
       @ loop invariant valid_list_disk(list_disk);
       @ loop invariant 0 <= i <= 10;
+      @ loop variant 10 - i;
       @*/
     for(i=0;i<10;i++)
     {
@@ -968,12 +985,17 @@ void update_disk_car_fields(disk_t *disk_car)
 #ifdef TARGET_LINUX
 /*@
   @ requires valid_string(buf);
+  @ requires strlen(buf) < (1<<31);
   @ ensures  valid_string(buf);
   @*/
 static void rtrim(char *buf)
 {
   unsigned int i;
-  /*@ loop assigns i; */
+  /*@
+    @ loop invariant valid_string(&buf[i]);
+    @ loop assigns i;
+    @ loop variant i;
+    */
   for(i=strlen(buf); i>0 && buf[i] == ' '; i--);
   /*@ assert 0 <= i < strlen(buf); */
   buf[i]='\0';
@@ -1117,6 +1139,53 @@ static int scsi_query_product_info (const int sg_fd, char **vendor, char **produ
   @*/
 static void disk_get_model(const int hd_h, disk_t *dev, const unsigned int verbose)
 {
+#if defined(TARGET_LINUX) && defined(HAVE_SYS_SYSMACROS_H)
+  struct stat stat_rec;
+  if(fstat(hd_h,&stat_rec)>=0 && S_ISBLK(stat_rec.st_mode))
+  {
+    FILE *f;
+    char name_buf[4096];
+    if(dev->model==NULL)
+    {
+      snprintf(name_buf, sizeof(name_buf), "/sys/dev/block/%u:%u/device/model", major(stat_rec.st_rdev), minor(stat_rec.st_rdev));
+      if((f = fopen(name_buf, "r")) != NULL)
+      {
+	char tmp[41];
+	if (fgets(tmp, 40, f) != NULL)
+	{
+	  dev->model=strip_dup(tmp);
+	}
+	fclose(f);
+      }
+    }
+    if(dev->serial_no == NULL)
+    {
+      snprintf(name_buf, sizeof(name_buf), "/sys/dev/block/%u:%u/device/serial", major(stat_rec.st_rdev), minor(stat_rec.st_rdev));
+      if((f = fopen(name_buf, "r")) != NULL)
+      {
+	char tmp[41];
+	if (fgets(tmp, 40, f) != NULL)
+	{
+	  dev->serial_no=strip_dup(tmp);
+	}
+	fclose(f);
+      }
+    }
+    if(dev->fw_rev== NULL)
+    {
+      snprintf(name_buf, sizeof(name_buf), "/sys/dev/block/%u:%u/device/rev", major(stat_rec.st_rdev), minor(stat_rec.st_rdev));
+      if((f = fopen(name_buf, "r")) != NULL)
+      {
+	char tmp[41];
+	if (fgets(tmp, 40, f) != NULL)
+	{
+	  dev->fw_rev=strip_dup(tmp);
+	}
+	fclose(f);
+      }
+    }
+  }
+#endif
 #ifdef HDIO_GET_IDENTITY
   if(dev->model!=NULL)
     return;
@@ -1996,8 +2065,16 @@ void hd_update_all_geometry(const list_disk_t * list_disk, const int verbose)
   {
     log_trace("hd_update_all_geometry\n");
   }
+  /*@
+    @ loop invariant valid_list_disk(element_disk);
+    @*/
   for(element_disk=list_disk;element_disk!=NULL;element_disk=element_disk->next)
+  {
+    /*@ assert \valid(element_disk); */
+    /*@ assert valid_disk(element_disk->disk); */
     hd_update_geometry(element_disk->disk, verbose);
+    /*@ assert \valid(element_disk); */
+  }
 }
 
 void init_disk(disk_t *disk)

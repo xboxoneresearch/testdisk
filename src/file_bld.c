@@ -75,7 +75,12 @@ struct blend8_block
   @*/
 static data_check_t data_check_blend4le(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
-  /*@ loop assigns file_recovery->calculated_file_size; */
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@
+    @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 - (file_recovery->calculated_file_size + 0x14);
+    @*/
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 0x14 < file_recovery->file_size + buffer_size/2)
   {
@@ -108,7 +113,12 @@ static data_check_t data_check_blend4le(const unsigned char *buffer, const unsig
   @*/
 static data_check_t data_check_blend8le(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
-  /*@ loop assigns file_recovery->calculated_file_size; */
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@
+    @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 - (file_recovery->calculated_file_size + 0x18);
+    @*/
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 0x18 < file_recovery->file_size + buffer_size/2)
   {
@@ -141,7 +151,12 @@ static data_check_t data_check_blend8le(const unsigned char *buffer, const unsig
   @*/
 static data_check_t data_check_blend4be(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
-  /*@ loop assigns file_recovery->calculated_file_size; */
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@
+    @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 -(file_recovery->calculated_file_size + 0x14);
+    @*/
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 0x14 < file_recovery->file_size + buffer_size/2)
   {
@@ -175,8 +190,11 @@ static data_check_t data_check_blend4be(const unsigned char *buffer, const unsig
   @*/
 static data_check_t data_check_blend8be(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
   /*@
     @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 - (file_recovery->calculated_file_size + 0x18);
     @ */
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 0x18 < file_recovery->file_size + buffer_size/2)
@@ -207,6 +225,7 @@ static data_check_t data_check_blend8be(const unsigned char *buffer, const unsig
   @ requires buffer_size >= 8;
   @ requires separation: \separated(&file_hint_blend, buffer+(..), file_recovery, file_recovery_new);
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @ ensures (\result == 1) ==> file_recovery_new->file_size == 0;
   @ ensures (\result == 1) ==> (file_recovery_new->time == 0);

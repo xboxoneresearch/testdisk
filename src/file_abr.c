@@ -61,8 +61,11 @@ const file_hint_t file_hint_abr= {
 static data_check_t data_check_abr(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
   /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
   /*@
+    @ loop invariant buffer_size <= 2 * PHOTOREC_MAX_BLOCKSIZE;
     @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 - (file_recovery->calculated_file_size + 12);
     @*/
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 12 < file_recovery->file_size + buffer_size/2)
@@ -92,6 +95,7 @@ static int header_check_abr(const unsigned char *buffer, const unsigned int buff
   assert(buffer_size >= 12);
   /*@
     @ loop assigns i;
+    @ loop variant 512 - 12 - i;
     @*/
   while(i < buffer_size - 12 && i < 512 - 12)
   {

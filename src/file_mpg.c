@@ -49,6 +49,7 @@ const file_hint_t file_hint_mpg= {
 
 /*@
   @ requires \valid_read(buffer + (0 .. 13));
+  @ terminates \true;
   @ assigns \nothing;
   @*/
 static unsigned int calculate_packet_size(const unsigned char *buffer)
@@ -145,13 +146,17 @@ static unsigned int calculate_packet_size(const unsigned char *buffer)
 /*@
   @ requires file_recovery->data_check==&data_check_mpg;
   @ requires valid_data_check_param(buffer, buffer_size, file_recovery);
+  @ terminates \true;
   @ ensures  valid_data_check_result(\result, file_recovery);
   @ assigns file_recovery->calculated_file_size;
   @*/
 static data_check_t data_check_mpg(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
+  /*@ assert file_recovery->calculated_file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
   /*@
     @ loop assigns file_recovery->calculated_file_size;
+    @ loop variant file_recovery->file_size + buffer_size/2 - (file_recovery->calculated_file_size + 14);
     @*/
   while(file_recovery->calculated_file_size + buffer_size/2  >= file_recovery->file_size &&
       file_recovery->calculated_file_size + 14 < file_recovery->file_size + buffer_size/2)
@@ -164,6 +169,7 @@ static data_check_t data_check_mpg(const unsigned char *buffer, const unsigned i
 #endif
     if(ret==0)
       return DC_STOP;
+    /*@ assert ret > 0; */
     file_recovery->calculated_file_size+=ret;
   }
   return DC_CONTINUE;
@@ -171,6 +177,7 @@ static data_check_t data_check_mpg(const unsigned char *buffer, const unsigned i
 
 /*@
   @ requires \valid(file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_file_recovery(file_recovery_new);
   @ assigns  *file_recovery_new;
   @*/
@@ -188,6 +195,7 @@ static int header_mpg_found(file_recovery_t *file_recovery_new)
 /*@
   @ requires buffer_size >= 13;
   @ requires \valid_read(buffer+(0..buffer_size-1));
+  @ terminates \true;
   @ assigns \nothing;
   @*/
 static int is_valid_packet_size(const unsigned char *buffer, const unsigned int buffer_size)
@@ -195,6 +203,7 @@ static int is_valid_packet_size(const unsigned char *buffer, const unsigned int 
   unsigned int i=0;
   /*@
     @ loop assigns i;
+    @ loop variant 512 - (i+14);
     @*/
   while(i+14 < td_min(buffer_size,512U))
   {
@@ -202,6 +211,7 @@ static int is_valid_packet_size(const unsigned char *buffer, const unsigned int 
     const unsigned int ret=calculate_packet_size(&buffer[i]);
     if(ret==0)
       return 0;
+    /*@ assert ret > 0; */
     i+=ret;
   }
   return 1;
@@ -211,6 +221,7 @@ static int is_valid_packet_size(const unsigned char *buffer, const unsigned int 
   @ requires buffer_size >= 13;
   @ requires separation: \separated(&file_hint_mpg, buffer+(..), file_recovery, file_recovery_new);
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @*/
 static int header_check_mpg_Pack(const unsigned char *buffer, const unsigned int buffer_size, const unsigned int safe_header_only, const file_recovery_t *file_recovery, file_recovery_t *file_recovery_new)
@@ -278,6 +289,7 @@ static int header_check_mpg_Pack(const unsigned char *buffer, const unsigned int
   @ requires buffer_size >= 12;
   @ requires separation: \separated(&file_hint_mpg, buffer+(..), file_recovery, file_recovery_new);
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @*/
 static int header_check_mpg_System(const unsigned char *buffer, const unsigned int buffer_size, const unsigned int safe_header_only, const file_recovery_t *file_recovery, file_recovery_t *file_recovery_new)
@@ -321,6 +333,7 @@ static int header_check_mpg_System(const unsigned char *buffer, const unsigned i
   @ requires buffer_size >= 11;
   @ requires separation: \separated(&file_hint_mpg, buffer+(..), file_recovery, file_recovery_new);
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @*/
 static int header_check_mpg_Sequence(const unsigned char *buffer, const unsigned int buffer_size, const unsigned int safe_header_only, const file_recovery_t *file_recovery, file_recovery_t *file_recovery_new)
@@ -357,6 +370,7 @@ static int header_check_mpg_Sequence(const unsigned char *buffer, const unsigned
   @ requires buffer_size >= 6;
   @ requires separation: \separated(&file_hint_mpg, buffer+(..), file_recovery, file_recovery_new);
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
+  @ terminates \true;
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @*/
 static int header_check_mpg4_ElemVideo(const unsigned char *buffer, const unsigned int buffer_size, const unsigned int safe_header_only, const file_recovery_t *file_recovery, file_recovery_t *file_recovery_new)

@@ -46,6 +46,57 @@
 #include "filegen.h"
 #include "log.h"
 
+static int file_check_cmp(const struct td_list_head *a, const struct td_list_head *b);
+
+#ifndef __FRAMAC__
+#include "list_add_sorted.h"
+/*@ requires compar == file_check_cmp; */
+static inline void td_list_add_sorted(struct td_list_head *newe, struct td_list_head *head,
+    int (*compar)(const struct td_list_head *a, const struct td_list_head *b));
+#else
+
+/*@
+  @ requires \valid(newe);
+  @ requires \valid(head);
+  @ requires separation: \separated(newe, head);
+  @ requires list_separated(head->prev, newe);
+  @ requires list_separated(head, newe);
+  @ requires finite(head->prev);
+  @ requires finite(head);
+  @*/
+static inline void td_list_add_sorted_fcc(struct td_list_head *newe, struct td_list_head *head)
+{
+  struct td_list_head *pos;
+  /*@
+    @ loop invariant \valid(pos);
+    @ loop invariant \valid(pos->prev);
+    @ loop invariant \valid(pos->next);
+    @ loop invariant pos == head || \separated(pos, head);
+    @ loop assigns pos;
+    @*/
+  td_list_for_each(pos, head)
+  {
+    /*@ assert \valid_read(newe); */
+    /*@ assert \valid_read(pos); */
+    if(file_check_cmp(newe,pos)<0)
+      break;
+  }
+  if(pos != head)
+  {
+      __td_list_add(newe, pos->prev, pos);
+  }
+  else
+  {
+    /*@ assert finite(head->prev); */
+    /*@ assert finite(head); */
+    /*@ assert list_separated(head->prev, newe); */
+    /*@ assert list_separated(head, newe); */
+    td_list_add_tail(newe, head);
+  }
+}
+#endif
+
+
 uint64_t gpls_nbr=0;
 static uint64_t offset_skipped_header=0;
 
@@ -57,16 +108,12 @@ file_check_list_t file_check_list={
     .list = TD_LIST_HEAD_INIT(file_check_list.list)
 };
 
-//  X requires \valid_read(b);
 /*@
   @ requires \valid_read(a);
   @ requires \valid_read(b);
   @ assigns \nothing;
   @*/
-#ifndef DISABLED_FOR_FRAMAC
-static
-#endif
-int file_check_cmp(const struct td_list_head *a, const struct td_list_head *b)
+static int file_check_cmp(const struct td_list_head *a, const struct td_list_head *b)
 {
 #ifdef DISABLED_FOR_FRAMAC
   return 1;
@@ -116,6 +163,7 @@ static void file_check_add_tail(file_check_t *file_check_new, file_check_list_t 
   unsigned int i;
   const unsigned int tmp=(file_check_new->length==0?0:((const unsigned char *)file_check_new->value)[0]);
   file_check_list_t *newe=(file_check_list_t *)MALLOC(sizeof(*newe));
+  /*@ assert \valid(newe); */
   newe->offset=file_check_new->offset;
   /*@
     @ loop unroll 256;
@@ -149,6 +197,7 @@ void register_header_check(const unsigned int offset, const void *value, const u
     file_stat_t *file_stat)
 {
   file_check_t *file_check_new=(file_check_t *)MALLOC(sizeof(*file_check_new));
+  /*@ assert \valid(file_check_new); */
   file_check_new->value=value;
   file_check_new->length=length;
   file_check_new->offset=offset;
@@ -166,7 +215,11 @@ void register_header_check(const unsigned int offset, const void *value, const u
   /*@ assert \valid(file_check_new->file_stat); */
 
   /*@ assert valid_file_check_node(file_check_new); */
+#ifdef __FRAMAC__
+  td_list_add_sorted_fcc(&file_check_new->list, &file_check_plist.list);
+#else
   td_list_add_sorted(&file_check_new->list, &file_check_plist.list, file_check_cmp);
+#endif
 }
 
 /*@
@@ -181,15 +234,23 @@ static void index_header_check_aux(file_check_t *file_check_new)
     /*@ assert file_check_new->offset < 0x80000000; */
     /*@ assert 0 < file_check_new->length <= 4096; */
     struct td_list_head *tmp;
+    /*@
+      @ loop invariant \valid(tmp);
+      @*/
     td_list_for_each(tmp, &file_check_list.list)
     {
       file_check_list_t *pos=td_list_entry(tmp, file_check_list_t, list);
       if(pos->offset >= file_check_new->offset &&
 	  pos->offset < file_check_new->offset+file_check_new->length)
       {
+#ifdef __FRAMAC__
+	td_list_add_sorted_fcc(&file_check_new->list,
+	    &pos->file_checks[((const unsigned char *)file_check_new->value)[pos->offset-file_check_new->offset]].list);
+#else
 	td_list_add_sorted(&file_check_new->list,
 	    &pos->file_checks[((const unsigned char *)file_check_new->value)[pos->offset-file_check_new->offset]].list,
 	    file_check_cmp);
+#endif
 	return ;
       }
       if(pos->offset>file_check_new->offset)
@@ -207,7 +268,11 @@ static unsigned int index_header_check(void)
   struct td_list_head *tmp;
   struct td_list_head *next;
   unsigned int nbr=0;
- /* Initialize file_check_list from file_check_plist */
+  /* Initialize file_check_list from file_check_plist */
+  /*@
+    @ loop invariant \valid_read(tmp);
+    @ loop invariant \valid_read(next);
+    @*/
   td_list_for_each_prev_safe(tmp, next, &file_check_plist.list)
   {
     file_check_t *current_check;
@@ -291,16 +356,21 @@ void file_allow_nl(file_recovery_t *file_recovery, const unsigned int nl_mode)
     /*@ assert valid_file_check_result(file_recovery); */
     return;
   }
+  /*@ assert valid_file_recovery(file_recovery); */
   taille=fread(buffer,1, 4096,file_recovery->handle);
+  /*@ assert valid_file_recovery(file_recovery); */
 #ifdef __FRAMAC__
   Frama_C_make_unknown(&buffer, 4096);
 #endif
+  /*@ assert valid_file_recovery(file_recovery); */
+  /*@ assert file_recovery->file_size < 0x8000000000000000-2; */
   if(taille > 0 && buffer[0]=='\n' && (nl_mode&NL_BARENL)==NL_BARENL)
     file_recovery->file_size++;
   else if(taille > 1 && buffer[0]=='\r' && buffer[1]=='\n' && (nl_mode&NL_CRLF)==NL_CRLF)
     file_recovery->file_size+=2;
   else if(taille > 0 && buffer[0]=='\r' && (nl_mode&NL_BARECR)==NL_BARECR)
     file_recovery->file_size++;
+  /*@ assert file_recovery->file_size < 0x8000000000000000; */
   /*@ assert \valid(file_recovery->handle); */
   /*@ assert valid_file_recovery(file_recovery); */
   /*@ assert valid_file_check_result(file_recovery); */
@@ -319,6 +389,7 @@ uint64_t file_rsearch(FILE *handle, uint64_t offset, const void*footer, const un
   memset(&buffer[4096],0,footer_length-1);
   /*@
     @ loop invariant 0 <= offset <= \at(offset, Pre);
+    @ loop invariant offset < 0x8000000000000000;
     @ loop assigns errno, *handle, Frama_C_entropy_source;
     @ loop assigns offset, buffer[0 .. 8192-1];
     @ loop variant offset;
@@ -333,6 +404,7 @@ uint64_t file_rsearch(FILE *handle, uint64_t offset, const void*footer, const un
       offset-=4096;
     else
       offset=offset-(offset%4096);
+    /*@ assert offset + 4096 <= 0x8000000000000000; */
     if(my_fseek(handle,offset,SEEK_SET)<0)
       return 0;
     taille=fread(&buffer, 1, 4096, handle);
@@ -342,9 +414,14 @@ uint64_t file_rsearch(FILE *handle, uint64_t offset, const void*footer, const un
 #ifdef __FRAMAC__
     Frama_C_make_unknown(&buffer, 4096);
 #endif
-    /*@ loop assigns i; */
+    /*@
+      @ loop invariant -1 <= i < taille;
+      @ loop assigns i;
+      @ loop variant i;
+      @*/
     for(i=taille-1;i>=0;i--)
     {
+      /*@ assert offset + i <= 0x8000000000000000; */
       if(buffer[i]==*(const char *)footer && memcmp(&buffer[i],footer,footer_length)==0)
       {
         return offset + i;
@@ -357,17 +434,25 @@ uint64_t file_rsearch(FILE *handle, uint64_t offset, const void*footer, const un
 
 void file_search_footer(file_recovery_t *file_recovery, const void*footer, const unsigned int footer_length, const unsigned int extra_length)
 {
+  /*@ assert \valid(file_recovery); */
   if(footer_length==0 || file_recovery->file_size <= extra_length)
     return ;
   file_recovery->file_size=file_rsearch(file_recovery->handle, file_recovery->file_size-extra_length, footer, footer_length);
+  /*@ assert 0 < footer_length < 4096; */
+  /*@ assert extra_length <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert file_recovery->file_size < 0x8000000000000000; */
   if(file_recovery->file_size > 0)
-    file_recovery->file_size+= footer_length + extra_length;
+    file_recovery->file_size+= (uint64_t)footer_length + extra_length;
   /*@ assert \valid(file_recovery->handle); */
   /*@ assert valid_file_check_result(file_recovery); */
 }
 
 data_check_t data_check_size(const unsigned char *buffer, const unsigned int buffer_size, file_recovery_t *file_recovery)
 {
+  /*@ assert \valid_read(file_recovery); */
+  /*@ assert valid_file_recovery(file_recovery); */
+  /*@ assert file_recovery->file_size <= PHOTOREC_MAX_FILE_SIZE; */
+  /*@ assert buffer_size <= 2 * PHOTOREC_MAX_BLOCKSIZE; */
   if(file_recovery->file_size + buffer_size/2 >= file_recovery->calculated_file_size)
   {
     /*@ assert valid_file_recovery(file_recovery); */
@@ -379,6 +464,7 @@ data_check_t data_check_size(const unsigned char *buffer, const unsigned int buf
 
 void file_check_size(file_recovery_t *file_recovery)
 {
+  /*@ assert \valid(file_recovery); */
   if(file_recovery->file_size<file_recovery->calculated_file_size)
     file_recovery->file_size=0;
   else
@@ -388,6 +474,7 @@ void file_check_size(file_recovery_t *file_recovery)
 
 void file_check_size_min(file_recovery_t *file_recovery)
 {
+  /*@ assert \valid(file_recovery); */
   if(file_recovery->file_size<file_recovery->calculated_file_size)
     file_recovery->file_size=0;
   /*@ assert valid_file_check_result(file_recovery); */
@@ -395,6 +482,7 @@ void file_check_size_min(file_recovery_t *file_recovery)
 
 void file_check_size_max(file_recovery_t *file_recovery)
 {
+  /*@ assert \valid(file_recovery); */
   if(file_recovery->file_size > file_recovery->calculated_file_size)
     file_recovery->file_size=file_recovery->calculated_file_size;
   /*@ assert valid_file_check_result(file_recovery); */
@@ -433,7 +521,10 @@ file_stat_t * init_file_stats(file_enable_t *files_enable)
   unsigned int enable_count=1;	/* Lists are terminated by NULL */
   unsigned int sign_nbr;
   unsigned int i;
-  /*@ loop assigns enable_count, file_enable; */
+  /*@
+    @ loop invariant valid_file_enable_node(file_enable);
+    @ loop assigns enable_count, file_enable;
+    @*/
   for(file_enable=files_enable;file_enable->file_hint!=NULL;file_enable++)
   {
     if(file_enable->enable>0 && file_enable->file_hint->register_header_check!=NULL)
@@ -443,19 +534,34 @@ file_stat_t * init_file_stats(file_enable_t *files_enable)
   }
   /*@ assert enable_count > 0; */
   file_stats=(file_stat_t *)MALLOC(enable_count * sizeof(file_stat_t));
+  /*@ assert \valid(file_stats + (0 .. enable_count-1)); */
   i=0;
+  /*@
+    @ loop invariant \valid(file_stats + (0 .. enable_count-1));
+    @ loop invariant valid_file_enable_node(file_enable);
+    @ loop invariant 1 <= enable_count;
+    @ loop invariant 0 <= i < enable_count;
+    @ loop invariant \forall integer j; 0 <= j < i ==> valid_file_stat(&file_stats[j]);
+    @*/
   for(file_enable=files_enable;file_enable->file_hint!=NULL;file_enable++)
   {
+    /*@ assert i < enable_count; */
+    /*@ assert \valid_read(file_enable); */
+    /*@ assert \valid_read(file_enable->file_hint); */
     if(file_enable->enable>0 && file_enable->file_hint->register_header_check!=NULL)
     {
       file_stats[i].file_hint=file_enable->file_hint;
       file_stats[i].not_recovered=0;
       file_stats[i].recovered=0;
+      /*@ assert \valid_function((file_enable->file_hint)->register_header_check); */
       file_enable->file_hint->register_header_check(&file_stats[i]);
+      /*@ assert valid_file_stat(&file_stats[i]); */
       i++;
     }
   }
   sign_nbr=index_header_check();
+  /*@ assert \valid(file_stats + (0 .. enable_count-1)); */
+  /*@ assert 1 <= enable_count; */
   file_stats[enable_count-1].file_hint=NULL;
 #ifndef DISABLED_FOR_FRAMAC
   log_info("%u first-level signatures enabled\n", sign_nbr);
@@ -466,46 +572,80 @@ file_stat_t * init_file_stats(file_enable_t *files_enable)
 /*@
   @ requires \valid(file_recovery);
   @ requires valid_file_recovery(file_recovery);
+  @ requires strlen(&file_recovery->filename[0]) > 0;
   @ requires valid_read_string(new_ext);
+  @ requires strlen(new_ext) < (1<<30);
   @ requires separation: \separated(file_recovery, new_ext);
   @ ensures  valid_file_recovery(file_recovery);
   @*/
 static int file_rename_aux(file_recovery_t *file_recovery, const char *new_ext)
 {
-#ifndef DISABLED_FOR_FRAMAC
+  /*@ assert valid_file_recovery(file_recovery); */
+  /*@ assert valid_string((char *)&file_recovery->filename); */
   char new_filename[sizeof(file_recovery->filename)];
   char *dst;
   char *dst_dir_sep;
-  unsigned int len=strlen(file_recovery->filename)+1;
-  len+=strlen(new_ext);
+  /*@ assert strlen((char *)&file_recovery->filename) < 2048; */
+  /*@ assert strlen(new_ext) < (1<<30); */
+  const unsigned int len=strlen(file_recovery->filename)+1+strlen(new_ext)+1;
   /*@ assert valid_read_string(&file_recovery->filename[0]); */
   if(len > sizeof(file_recovery->filename))
   {
-    /*@ assert valid_read_string((const char *)&file_recovery->filename); */
+    /*@ assert valid_string((char *)&file_recovery->filename); */
+    /*@ assert valid_file_recovery(file_recovery); */
     return -1;
   }
   /*@ assert len <= sizeof(file_recovery->filename); */
   /*@ assert valid_read_string((char*)&file_recovery->filename); */
-  strcpy(new_filename, (char *)&file_recovery->filename);
-  /*@ assert valid_string((char *)&new_filename); */
+  /*@ assert \initialized((char *)&file_recovery->filename +(0..strlen(&file_recovery->filename[0]))); */
+  /*@ assert valid_read_string(new_ext); */
+  /*@ assert strlen(new_ext) < (1<<30); */
+  /*@ assert \separated(file_recovery, new_ext); */
+  memcpy(new_filename, (char *)&file_recovery->filename, sizeof(file_recovery->filename));
+  /*@ assert valid_string(&new_filename[0]); */
+  /*@ assert \initialized((char *)&new_filename[0] +(0..strlen(&new_filename[0]))); */
+  /*@ assert valid_read_string(new_ext); */
+  /*@ assert strlen(new_ext) < (1<<30); */
+#ifdef DISABLED_FOR_FRAMAC
+  dst_dir_sep=new_filename;
+#else
   dst_dir_sep=strrchr(new_filename, '/');
+  /*@ assert dst_dir_sep==\null || valid_string(dst_dir_sep); */
+  /*@ assert dst_dir_sep==\null || \subset(dst_dir_sep, &new_filename[0] +(0..strlen(&new_filename[0]))); */
+  /*@ assert dst_dir_sep==\null || \initialized(dst_dir_sep +(0..strlen(dst_dir_sep))); */
+  if(dst_dir_sep==NULL)
+    dst_dir_sep=new_filename;
+#endif
   /*@ assert valid_string(dst_dir_sep); */
+  /*@ assert \initialized((char *)dst_dir_sep +(0..strlen(dst_dir_sep))); */
   dst=dst_dir_sep;
+  /*@ assert valid_string(dst); */
+  /*@ assert \initialized(dst); */
+  /*@ ghost char *odst = dst; */
+  /*@
+    @ loop invariant valid_string(dst);
+    @ loop invariant \initialized(dst);
+    @ loop invariant odst <= dst <= odst + strlen(odst);
+    @ loop invariant valid_read_string(new_ext);
+    @ loop invariant strlen(new_ext) < (1<<30);
+    @ loop assigns dst;
+    @ loop variant strlen(dst);
+    @*/
   while(*dst!='.' && *dst!='\0')
     dst++;
   /* Add extension */
-  {
-    const char *src;
-    src=new_ext;
-    *dst++ = '.';
-    while(*src!='\0')
-      *dst++ = *src++;
-    *dst='\0';
-  }
+  *dst++ = '.';
+  /*@ assert strlen(new_ext) < (1<<30); */
+#ifdef DISABLED_FOR_FRAMAC
+  memcpy(dst, new_ext, strlen(new_ext)+1);
+#else
+  strcpy(dst, new_ext);
+#endif
   /*@ assert valid_string(&new_filename[0]); */
   if(strlen(new_filename) >= sizeof(file_recovery->filename))
   {
     /*@ assert valid_read_string((const char *)&file_recovery->filename); */
+    /*@ assert valid_file_recovery(file_recovery); */
     return -1;
   }
   /*@ assert valid_read_string(&new_filename[0]); */
@@ -513,45 +653,61 @@ static int file_rename_aux(file_recovery_t *file_recovery, const char *new_ext)
   {
     /* Rename has failed */
     /*@ assert valid_read_string((const char *)&file_recovery->filename); */
+    /*@ assert valid_file_recovery(file_recovery); */
     return -1;
   }
+  /*@ assert valid_file_recovery(file_recovery); */
   /*@ assert valid_read_string(&new_filename[0]); */
-  strcpy(file_recovery->filename, new_filename);
-#else
-  file_recovery->filename[0]='/';
-  file_recovery->filename[1]='\0';
-#endif
+  memcpy(file_recovery->filename, new_filename, sizeof(file_recovery->filename));
   /*@ assert valid_read_string((const char *)&file_recovery->filename); */
   /*@ assert valid_file_recovery(file_recovery); */
   return 0;
 }
 
 /*@
-  @ requires \valid(file_recovery);
-  @ requires valid_read_string((char*)&file_recovery->filename);
+  @ requires valid_string(filename);
+  @ requires \valid(filename +(0..2047));
+  @ requires 0 < strlen(filename) < 1<<30;
   @ requires 0 <= offset < buffer_size;
+  @ requires buffer_size < 1<<30;
   @ requires \valid_read((char *)buffer+(0..buffer_size-1));
-  @ requires new_ext==\null || valid_read_string(new_ext);
-  @ ensures  new_ext==\null || valid_read_string(new_ext);
-  @ ensures  valid_file_recovery(file_recovery);
+  @ requires new_ext==\null || (valid_read_string(new_ext) && strlen(new_ext) < 1<<30);
+  @ ensures  new_ext==\null || (valid_read_string(new_ext) && strlen(new_ext) < 1<<30);
+  @ ensures  valid_string(filename);
+  @ ensures 0 < strlen(filename) < 1<<30;
   @*/
-static int _file_rename(file_recovery_t *file_recovery, const void *buffer, const int buffer_size, const int offset, const char *new_ext, const int append_original_ext)
+static int _file_rename(char *filename, const void *buffer, const int buffer_size, const int offset, const char *new_ext, const int append_original_ext)
 {
   char *new_filename;
-  const char *src=file_recovery->filename;
+  const char *src=filename;
   const char *ext=NULL;
   char *dst;
   char *directory_sep;
-  int len;
+  size_t len;
   len=strlen(src)+1;
   /*@ assert offset < buffer_size; */
   len+=buffer_size-offset+1;
   if(new_ext!=NULL)
-    len+=strlen(new_ext);
+    len+=strlen(new_ext)+1;
 #ifndef DISABLED_FOR_FRAMAC
   new_filename=(char*)MALLOC(len);
+  /*@ assert \valid(new_filename); */
   dst=new_filename;
-  directory_sep=new_filename;
+  directory_sep=dst;
+  strcpy(dst, src);
+  /*@ ghost char *osrc = src; */
+  /*@ ghost char *odst = dst; */
+  /*@ assert valid_read_string(osrc); */
+  //X loop assigns src, dst, odst[0..strlen(osrc)];
+  //X loop assigns directory_sep, ext;
+  /*@ loop invariant osrc <= src <= osrc + strlen(osrc);
+    loop invariant odst <= dst <= odst + strlen(osrc);
+    loop invariant valid_read_string(src);
+    loop invariant dst - odst == src - osrc;
+    loop invariant strlen(src) == strlen(osrc) - (src - osrc);
+    loop invariant \forall integer i; 0 <= i < src - osrc ==> odst[i] == osrc[i];
+    loop variant strlen(osrc) - (src - osrc);
+    */
   while(*src!='\0')
   {
     if(*src=='/')
@@ -564,20 +720,33 @@ static int _file_rename(file_recovery_t *file_recovery, const void *buffer, cons
     *dst++ = *src++;
   }
   *dst='\0';
+  //@ assert *dst == '\0' && *src == '\0';
+  //@ assert valid_string(odst);
   dst=directory_sep;
+  /*@
+    @ loop invariant valid_string(dst);
+    @ loop assigns dst;
+    @*/
   while(*dst!='.' && *dst!='\0')
     dst++;
   /* Add original filename */
   {
     char *dst_old=dst;
+    /*@ assert valid_string(dst_old); */
     int off;
     int ok=0;
     int bad=0;
     *dst++ = '_';
-    src=&((const char *)buffer)[offset];
-    for(off=offset; off<buffer_size && *src!='\0'; off++, src++)
+    /*@
+      @ loop invariant offset <= off <= buffer_size;
+      @ loop variant buffer_size - off;
+      @*/
+    for(off=offset; off<buffer_size; off++)
     {
-      switch(*src)
+      const char c=((const char *)buffer)[off];
+      if(c=='\0')
+	break;
+      switch(c)
       {
 	case '/':
 	case '\\':
@@ -592,9 +761,9 @@ static int _file_rename(file_recovery_t *file_recovery, const void *buffer, cons
 	  bad++;
 	  break;
 	default:
-	  if(isprint(*src) && !isspace(*src) && !ispunct(*src) && !iscntrl(*src))
+	  if(isprint(c) && !isspace(c) && !ispunct(c) && !iscntrl(c))
 	  {
-	    *dst++ = *src;
+	    *dst++ = c;
 	    ok++;
 	  }
 	  else
@@ -610,6 +779,11 @@ static int _file_rename(file_recovery_t *file_recovery, const void *buffer, cons
       dst=dst_old;
     else
     {
+      /*@
+        @ loop invariant dst_old <= dst;
+        @ loop assigns dst;
+	@ loop variant dst;
+	@*/
       while(dst > dst_old && *(dst-1)=='_')
 	dst--;
     }
@@ -617,46 +791,44 @@ static int _file_rename(file_recovery_t *file_recovery, const void *buffer, cons
   /* Add extension */
   if(new_ext!=NULL)
   {
-    src=new_ext;
     *dst++ = '.';
-    while(*src!='\0')
-      *dst++ = *src++;
+    strcpy(dst, new_ext);
   }
   else if(append_original_ext>0)
   {
     if(ext!=NULL)
     {
-      while(*ext!='\0')
-	*dst++ = *ext++;
+      strcpy(dst, ext);
     }
   }
-  *dst='\0';
   /*@ assert valid_read_string(new_filename); */
-  /*@ assert valid_read_string(&file_recovery->filename[0]); */
-  if(strlen(new_filename)<sizeof(file_recovery->filename) && rename(file_recovery->filename, new_filename)==0)
+  /*@ assert valid_string(filename); */
+  if(strlen(new_filename)<2048 && rename(filename, new_filename)==0)
   {
-    strcpy(file_recovery->filename, new_filename);
+    strcpy(filename, new_filename);
     free(new_filename);
-    /*@ assert valid_read_string(&file_recovery->filename[0]); */
-    /*@ assert valid_file_recovery(file_recovery); */
+    /*@ assert valid_string(filename); */
     return 0;
 
   }
   free(new_filename);
 #endif
-  /*@ assert valid_read_string(&file_recovery->filename[0]); */
-  /*@ assert valid_file_recovery(file_recovery); */
+  /*@ assert valid_string(filename); */
   return -1;
 }
 
 /* The original filename begins at offset in buffer and is null terminated */
 int file_rename(file_recovery_t *file_recovery, const void *buffer, const int buffer_size, const int offset, const char *new_ext, const int append_original_ext)
 {
+  /*@ assert valid_file_recovery(file_recovery); */
+  if(file_recovery->filename[0] == 0)
+    return 0;
+  /*@ assert strlen((char *)&file_recovery->filename) > 0; */
   /*@ assert new_ext==\null || valid_read_string(new_ext); */
   if(buffer!=NULL && 0 <= offset && offset < buffer_size &&
-      _file_rename(file_recovery, buffer, buffer_size, offset, new_ext, append_original_ext)==0)
+      _file_rename(file_recovery->filename, buffer, buffer_size, offset, new_ext, append_original_ext)==0)
     return 0;
-  /*@ assert valid_read_string((char const *)(&file_recovery->filename)); */
+  /*@ assert valid_string((char *)(&file_recovery->filename)); */
   /*@ assert new_ext==\null || valid_read_string(new_ext); */
   if(new_ext==NULL)
     return 0;
@@ -667,11 +839,15 @@ int file_rename(file_recovery_t *file_recovery, const void *buffer, const int bu
 /* The original filename begins at offset in buffer and is null terminated */
 /*@
   @ requires \valid(file_recovery);
+  @ requires strlen((char*)&file_recovery->filename) < 1<<30;
   @ requires valid_file_recovery(file_recovery);
   @ requires valid_read_string((char*)&file_recovery->filename);
   @ requires 0 <= offset < buffer_size;
+  @ requires buffer_size < 1<<30;
   @ requires \valid_read((char *)buffer+(0..buffer_size-1));
-  @ requires new_ext==\null || valid_read_string(new_ext);
+  @ requires new_ext==\null || (valid_read_string(new_ext) && strlen(new_ext) < 1<<30);
+  @ requires \separated(file_recovery, new_ext);
+  @ ensures  new_ext==\null || (valid_read_string(new_ext) && strlen(new_ext) < 1<<30);
   @ ensures  valid_read_string((char*)&file_recovery->filename);
   @ ensures  valid_file_recovery(file_recovery);
   @*/
@@ -682,13 +858,14 @@ static int _file_rename_unicode(file_recovery_t *file_recovery, const void *buff
   const char *src_ext=src;
   char *dst;
   char *dst_dir_sep;
-  int len=strlen(src)+1;
+  size_t len=strlen(src)+1;
   /*@ assert offset < buffer_size; */
   len+=buffer_size-offset;
   if(new_ext!=NULL)
     len+=strlen(new_ext);
 #ifndef DISABLED_FOR_FRAMAC
   new_filename=(char*)MALLOC(len);
+  /*@ assert \valid(new_filename); */
   dst=new_filename;
   dst_dir_sep=dst;
   while(*src!='\0')
@@ -865,6 +1042,7 @@ void header_ignored(const file_recovery_t *file_recovery_new)
     offset_skipped_header=0;
     return ;
   }
+  /*@ assert \valid_read(file_recovery_new); */
   if(file_recovery_new->location.start < offset_skipped_header || offset_skipped_header==0)
     offset_skipped_header=file_recovery_new->location.start;
 }
@@ -878,13 +1056,18 @@ void get_prev_location_smart(const alloc_data_t *list_search_space, alloc_data_t
   alloc_data_t *file_space=*current_search_space;
   if(offset_skipped_header==0)
     return ;
+#ifndef __FRAMAC__
   gpls_nbr++;
+#endif
   /*@
+    @ loop invariant \valid_read(file_space);
+    @ loop invariant \separated(file_space, current_search_space, offset);
     @ loop assigns file_space, offset_skipped_header, *current_search_space, *offset;
     @*/
   while(1)
   {
     file_space=td_list_prev_entry(file_space, list);
+    /*@ assert \valid_read(file_space); */
     if(file_space==list_search_space)
       break;
     if(file_space->start <= offset_skipped_header && offset_skipped_header < file_space->end)
@@ -903,11 +1086,14 @@ void get_prev_location_smart(const alloc_data_t *list_search_space, alloc_data_t
       (long long unsigned)(*offset/512));
 #endif
   /*@
+    @ loop invariant \valid_read(file_space);
+    @ loop invariant \separated(file_space, current_search_space, offset);
     @ loop assigns file_space, offset_skipped_header, *current_search_space, *offset;
     @*/
   while(1)
   {
     file_space=td_list_prev_entry(file_space, list);
+    /*@ assert \valid_read(file_space); */
     if(file_space==list_search_space)
     {
       offset_skipped_header=0;

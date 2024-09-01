@@ -91,6 +91,7 @@ unsigned int find_tag_from_tiff_header(const unsigned char *buffer, const unsign
   @ requires \valid_read(buffer+(0..tiff_size-1));
   @ requires \valid(potential_error);
   @ requires \separated(potential_error, buffer);
+  @ terminates \true;
   @ assigns *potential_error;
   @*/
 unsigned int find_tag_from_tiff_header_le(const unsigned char *buffer, const unsigned int tiff_size, const unsigned int tag, const unsigned char**potential_error);
@@ -101,19 +102,17 @@ unsigned int find_tag_from_tiff_header_le(const unsigned char *buffer, const uns
   @ requires fr->file_check==&file_check_tiff_le;
   @ requires valid_file_check_param(fr);
   @ ensures  valid_file_check_result(fr);
+  @ assigns  errno;
+  @ assigns  fr->file_size;
+  @ assigns  *fr->handle;
+  @ assigns  Frama_C_entropy_source;
   @*/
-/*X FIXME: parse_strip_le calls MALLOC()
-  X assigns  errno;
-  X assigns  fr->file_size;
-  X assigns  *fr->handle;
-  X assigns  Frama_C_entropy_source;
-  X*/
 void file_check_tiff_le(file_recovery_t *fr);
 #endif
 
 #if !defined(MAIN_tiff_be) && !defined(MAIN_jpg) && !defined(SINGLE_FORMAT_jpg) && !defined(SINGLE_FORMAT_rw2) && !defined(SINGLE_FORMAT_orf) && !defined(SINGLE_FORMAT_wdp)
 /*@
-  @ requires buffer_size >= 15;
+  @ requires buffer_size >= 18;
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @ ensures (\result == 1) ==> (file_recovery_new->file_size == 0);
@@ -141,7 +140,7 @@ unsigned int find_tag_from_tiff_header_be(const unsigned char*buffer, const unsi
 
 #if !defined(MAIN_tiff_le) && !defined(MAIN_jpg) && !defined(SINGLE_FORMAT_jpg) && !defined(SINGLE_FORMAT_rw2) && !defined(SINGLE_FORMAT_orf) && !defined(SINGLE_FORMAT_wdp)
 /*@
-  @ requires buffer_size >= 15;
+  @ requires buffer_size >= 20;
   @ requires valid_header_check_param(buffer, buffer_size, safe_header_only, file_recovery, file_recovery_new);
   @ ensures  valid_header_check_result(\result, file_recovery_new);
   @ ensures (\result == 1) ==> (file_recovery_new->file_size == 0);
