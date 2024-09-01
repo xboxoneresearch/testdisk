@@ -14,7 +14,11 @@ jobs:
           packages: libtool,autoconf,automake,make,binutils,filesystem,e2fsprogs,gcc,libewf,libjpeg-turbo,ntfsprogs,ncurses,libncurses-devel,libiconv,zlib,pkg-config
       - shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
         run: |
-          bash autogen.sh
+          cd ${GITHUB_WORKSPACE}
+          chmod +x autogen.sh
+          ./autogen.sh
       - shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
         run: |
-          bash compile.sh
+          cd ${GITHUB_WORKSPACE}
+          chmod +x compile.sh
+          ./compile.sh
