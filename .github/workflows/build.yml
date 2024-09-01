@@ -1,0 +1,16 @@
+name: Build windows
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - name: Install cygwin
+        uses: cygwin/cygwin-install-action@master
+        with:
+          packages: cygwin64-binutils,cygwin64-filesystem,cygwin64-e2fsprogs,cygwin64-gcc,cygwin64-libewf,cygwin64-libjpeg-turbo,cygwin64-ntfsprogs,cygwin64-ncurses,cygwin64-libiconv,cygwin64-zlib,cygwin64-pkg-config
+      - name: Run build
+        run: bash .github/build.sh
