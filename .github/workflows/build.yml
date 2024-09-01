@@ -15,4 +15,4 @@ jobs:
       - name: Autogen
         run: bash autogen.sh
       - name: Compile
-        run: bash compile.sh x86_64-pc-cygwin
+        run: bash compile.sh
