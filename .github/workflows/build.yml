@@ -11,7 +11,7 @@ jobs:
       - name: Install cygwin
         uses: cygwin/cygwin-install-action@master
         with:
-          packages: libtool,autoconf,automake,make,binutils,filesystem,e2fsprogs,gcc,libewf,libjpeg-turbo,ntfsprogs,ncurses,libncurses-devel,libiconv,zlib,pkg-config
+          packages: libtool,autoconf,automake,make,binutils,filesystem,e2fsprogs,gcc,libewf,libjpeg-turbo,ntfsprogs,ncurses,libncurses5,libncurses6,libncurses7,libncurses-devel,libiconv,zlib,pkg-config
       - shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
         run: |
           cd ${GITHUB_WORKSPACE}
