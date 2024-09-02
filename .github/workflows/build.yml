@@ -42,8 +42,8 @@ jobs:
           wget http://prdownloads.sourceforge.net/linux-ntfs/ntfsprogs-${VER_NTFSPROGS}.tar.gz
           tar xzf ntfsprogs-${VER_NTFSPROGS}.tar.gz -C build_ntfs3g/
           cd build_ntfs3g/ntfsprogs-${VER_NTFSPROGS}
-          ./configure --disable-default-device-io-ops --disable-crypto
-          make CFLAGS="-DHAVE_FFS"
+          ./configure CFLAGS="-DHAVE_FFS" --disable-default-device-io-ops --disable-crypto
+          make
           make install
       - run: |
           cd ${GITHUB_WORKSPACE}
