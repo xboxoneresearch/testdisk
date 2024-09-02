@@ -24,11 +24,7 @@ jobs:
             make
             mingw-w64-x86_64-binutils
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-filesystem
-            mingw-w64-x86_64-e2fsprogs
-            mingw-w64-x86_64-libewf
             mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-ntfsprogs
             mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-libiconv
             mingw-w64-x86_64-zlib
