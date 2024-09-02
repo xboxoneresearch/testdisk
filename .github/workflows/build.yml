@@ -9,7 +9,7 @@ jobs:
       run:
         shell: msys2 {0}
     env:
-      VER_NTFSPROGS: 2.0.0
+      VER_LIBNTFS3G: 2022.5.17
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
@@ -38,10 +38,10 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}
           mkdir build_ntfs3g
-          wget http://prdownloads.sourceforge.net/linux-ntfs/ntfsprogs-${VER_NTFSPROGS}.tar.gz
-          tar xzf ntfsprogs-${VER_NTFSPROGS}.tar.gz -C build_ntfs3g/
-          cd build_ntfs3g/ntfsprogs-${VER_NTFSPROGS}
-          ./configure --disable-default-device-io-ops --disable-crypto
+          wget https://tuxera.com/opensource/ntfs-3g_ntfsprogs-${VER_LIBNTFS3G}.tgz
+          tar xzf ntfs-3g_ntfsprogs-${VER_LIBNTFS3G}.tgz -C build_ntfs3g/
+          cd build_ntfs3g/ntfs-3g_ntfsprogs-${VER_LIBNTFS3G}
+          ./configure --disable-device-default-io-ops --disable-crypto --disable-ntfs-3g
           make
           make install
       - run: |
