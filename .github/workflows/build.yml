@@ -30,7 +30,7 @@ jobs:
             mingw-w64-x86_64-zlib
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-openssl
-            mingw-w64-dlfcn
+            mingw-w64-x86_64-dlfcn
       #- name: Install dependencies
       #  run: |
       #    pacman -Syu
