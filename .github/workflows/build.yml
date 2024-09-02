@@ -7,12 +7,13 @@ on: [push]
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: C:\mingw64\bin\bash.exe
+    #defaults:
+    #  run:
+    #    shell: C:\mingw64\bin\bash.exe
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
+      - run: tree C:\mingw64\bin\
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
