@@ -2,23 +2,26 @@ name: Build windows
 
 on: [push]
 
+
+
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: C:\mingw64\bin\bash.exe --login '{0}'
     steps:
       - run: git config --global core.autocrlf input
       - uses: actions/checkout@v4
-      - name: Install cygwin
-        uses: cygwin/cygwin-install-action@master
-        with:
-          packages: libtool autoconf automake make binutils filesystem e2fsprogs gcc libewf libjpeg-turbo ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
-      - shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+      - name: Install dependencies
         run: |
+          pacman -Syu
+          pacman -S libtool autoconf automake make binutils filesystem e2fsprogs gcc libewf libjpeg-turbo ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
+      - run: |
           cd ${GITHUB_WORKSPACE}
           chmod +x autogen.sh
           ./autogen.sh
-      - shell: C:\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
-        run: |
+      - run: |
           cd ${GITHUB_WORKSPACE}
           chmod +x compile.sh
           ./compile.sh
