@@ -42,7 +42,7 @@ jobs:
           wget http://prdownloads.sourceforge.net/linux-ntfs/ntfsprogs-${VER_NTFSPROGS}.tar.gz
           tar xzf ntfsprogs-${VER_NTFSPROGS}.tar.gz -C build_ntfs3g/
           cd build_ntfs3g/ntfsprogs-${VER_NTFSPROGS}
-          ./configure CFLAGS="-Wno-implicit -DHAVE_FFS" --disable-default-device-io-ops --disable-crypto
+          ./configure CFLAGS="-Wno-implicit -DHAVE_FFS -US_IFLNK -US_ISLNK -US_IFSOCK -US_ISSOCK" --disable-default-device-io-ops --disable-crypto
           make
           make install
       - run: |
