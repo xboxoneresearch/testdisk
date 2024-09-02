@@ -43,8 +43,7 @@ jobs:
           tar xzf ntfs-3g_ntfsprogs-${VER_LIBNTFS3G}.tgz -C build_ntfs3g/
           cd build_ntfs3g/ntfs-3g_ntfsprogs-${VER_LIBNTFS3G}
           ./configure --disable-device-default-io-ops --disable-crypto --disable-ntfs-3g
-          make
-          make install
+          make ntfsprogs
       - run: |
           cd ${GITHUB_WORKSPACE}
           chmod +x autogen.sh
