@@ -2,14 +2,14 @@ name: Build windows
 
 on: [push]
 
-
-
 jobs:
   build:
     runs-on: windows-latest
     defaults:
       run:
         shell: msys2 {0}
+    env:
+      VER_NTFSPROGS: 2.0.0
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
@@ -34,6 +34,16 @@ jobs:
       #  run: |
       #    pacman -Syu
       #    pacman -S ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
+      - name: Install NTFSPROGS
+        run: |
+          cd ${GITHUB_WORKSPACE}
+          mkdir build_ntfs3g
+          wget http://prdownloads.sourceforge.net/linux-ntfs/ntfsprogs-${VER_NTFSPROGS}.tar.gz
+          tar xzf ntfsprogs-${VER_NTFSPROGS}.tar.gz -C build_ntfs3g/
+          cd build_ntfs3g/ntfsprogs-${VER_NTFSPROGS}
+          ./configure --disable-default-device-io-ops --disable-crypto
+          make
+          make install
       - run: |
           cd ${GITHUB_WORKSPACE}
           chmod +x autogen.sh
