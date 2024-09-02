@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: C:\mingw64\bin\bash.exe -noprofile --norc -eo pipefail {0}
+        shell: C:\mingw64\bin\bash.exe
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
