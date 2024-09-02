@@ -7,18 +7,36 @@ on: [push]
 jobs:
   build:
     runs-on: windows-latest
-    #defaults:
-    #  run:
-    #    shell: C:\mingw64\bin\bash.exe
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
       - run: git config --global core.autocrlf input
-        shell: pwsh
-      - run: tree C:\mingw64\bin\
       - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: |
-          pacman -Syu
-          pacman -S libtool autoconf automake make binutils filesystem e2fsprogs gcc libewf libjpeg-turbo ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          install: >-
+            libtool
+            autoconf
+            automake
+            make
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-filesystem
+            mingw-w64-x86_64-e2fsprogs
+            mingw-w64-x86_64-libewf
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-ntfsprogs
+            mingw-w64-x86_64-ncurses
+            mingw-w64-x86_64-libiconv
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-openssl
+      #- name: Install dependencies
+      #  run: |
+      #    pacman -Syu
+      #    pacman -S ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
       - run: |
           cd ${GITHUB_WORKSPACE}
           chmod +x autogen.sh
