@@ -9,7 +9,7 @@ jobs:
       run:
         shell: msys2 {0}
     env:
-      VER_LIBNTFS3G: 2022.5.17
+      VER_LIBNTFS3G: 2021.8.22
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
