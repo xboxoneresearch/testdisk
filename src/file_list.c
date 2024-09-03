@@ -1039,6 +1039,9 @@ extern const file_hint_t file_hint_x4a;
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xar)
 extern const file_hint_t file_hint_xar;
 #endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xb1_bootcap)
+extern const file_hint_t file_hint_xb1_bootcap;
+#endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xcf)
 extern const file_hint_t file_hint_xcf;
 #endif
@@ -2094,6 +2097,9 @@ file_enable_t array_file_enable[]=
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xar)
   { .enable=0, .file_hint=&file_hint_xar  },
+#endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xb1_bootcap)
+  { .enable=0, .file_hint=&file_hint_xb1_bootcap  },
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_xcf)
   { .enable=0, .file_hint=&file_hint_xcf  },

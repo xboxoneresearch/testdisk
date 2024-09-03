@@ -394,6 +394,7 @@ file_C			= filegen.c \
 			  file_xpt.c \
 			  file_xv.c \
 			  file_xvd.c \
+			  file_xb1_bootcap.c \
 			  file_xz.c \
 			  file_z2d.c \
 			  file_zcode.c \
