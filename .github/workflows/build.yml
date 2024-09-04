@@ -1,0 +1,49 @@
+name: Build windows
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fedora:40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dnf plugins core
+        run: dnf install -y dnf-plugins-core
+      - name: Enable testdisk mingw-testdisk repo
+        run: dnf copr enable -y grenier/mingw-testdisk
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+           git \
+           libtool \
+           autoconf \
+           automake \
+           make \
+           mingw64-binutils \
+           mingw64-filesystem \
+           mingw64-gcc \
+           mingw64-gcc-c++ \
+           mingw64-gettext \
+           mingw64-libewf \
+           mingw64-libjpeg-turbo \
+           mingw64-ntfsprogs \
+           mingw64-openssl \
+           mingw64-pdcurses \
+           mingw64-qt5-qtbase-devel \
+           mingw64-qt5-qttools-tools \
+           mingw64-win-iconv \
+           mingw64-zlib
+      - name: Configure
+        run: |
+          autoreconf -vif -I config -W all
+          mingw64-configure --enable-missing-uuid-ok
+      - name: Build
+        run: |
+          mingw64-make
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            src/*.exe
+            /usr/x86_64-w64-mingw32/sys-root/mingw/bin/*.dll
