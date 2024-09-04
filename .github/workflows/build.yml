@@ -13,7 +13,7 @@ jobs:
       - name: Enable testdisk mingw-testdisk repo
         run: dnf copr enable -y grenier/mingw-testdisk
       - name: Install dependencies
-        run: >-
+        run: |
           dnf install -y \
            git \
            libtool \
