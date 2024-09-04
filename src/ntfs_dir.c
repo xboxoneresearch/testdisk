@@ -153,7 +153,7 @@ static int ntfs_ucstoutf8(iconv_t cd, const ntfschar *ins, const int ins_len, ch
     outb_left = outs_len - 1;   // reserve 1 byte for NUL
 
     *outp = '\0';
-    if (iconv(cd, (char**)&inp, &inb_left, &outp, &outb_left) == (size_t)(-1))
+    if (iconv(cd, (const char**)&inp, &inb_left, &outp, &outb_left) == (size_t)(-1))
     {
       // Regardless of the value of errno
       log_error("ntfs_ucstoutf8: iconv failed\n");

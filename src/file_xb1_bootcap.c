@@ -33,6 +33,8 @@
 #include "filegen.h"
 #include "common.h"
 
+#define max(x,y) (((int)((x)<(y)) * (y)) + ((int)((y)<=(x)) * (x)))
+
 #define XB1_BOOTCAP_MAXSIZE 0x400 
 
 /*@ requires valid_register_header_check(file_stat); */
