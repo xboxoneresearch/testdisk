@@ -7,14 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:40
     steps:
-      - run: git config --global core.autocrlf input
-        shell: pwsh
       - uses: actions/checkout@v4
       - name: Install dnf plugins core
         run: dnf install dnf-plugins-core
       - name: Enable testdisk mingw-testdisk repo
         run: dnf copr enable grenier/mingw-testdisk
-      - name: Install NTFSPROGS
+      - name: Install dependencies
         run: >-
           dnf install 
            git
