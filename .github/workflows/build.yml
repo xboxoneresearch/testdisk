@@ -9,12 +9,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dnf plugins core
-        run: dnf install dnf-plugins-core
+        run: dnf install -y dnf-plugins-core
       - name: Enable testdisk mingw-testdisk repo
         run: dnf copr enable grenier/mingw-testdisk
       - name: Install dependencies
         run: >-
-          dnf install 
+          dnf install -y
            git
            libtool
            autoconf
