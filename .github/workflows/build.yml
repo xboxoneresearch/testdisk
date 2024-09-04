@@ -4,52 +4,42 @@ on: [push]
 
 jobs:
   build:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    env:
-      VER_NTFSPROGS: 2.0.0
+    runs-on: ubuntu-latest
+    container: fedora:40
     steps:
       - run: git config --global core.autocrlf input
         shell: pwsh
       - uses: actions/checkout@v4
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: mingw64
-          install: >-
-            libtool
-            autoconf
-            automake
-            make
-            mingw-w64-x86_64-binutils
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-libjpeg-turbo
-            mingw-w64-x86_64-ncurses
-            mingw-w64-x86_64-libiconv
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-pkg-config
-            mingw-w64-x86_64-openssl
-            mingw-w64-x86_64-dlfcn
-      #- name: Install dependencies
-      #  run: |
-      #    pacman -Syu
-      #    pacman -S ntfsprogs ncurses libncurses5 libncurses6 libncurses7 libncurses-devel libiconv zlib pkg-config
+      - name: Install dnf plugins core
+        run: dnf install dnf-plugins-core
+      - name: Enable testdisk mingw-testdisk repo
+        run: dnf copr enable grenier/mingw-testdisk
       - name: Install NTFSPROGS
+        run: >-
+          dnf install 
+           git
+           libtool
+           autoconf
+           automake
+           make
+           mingw64-binutils
+           mingw64-filesystem
+           mingw64-gcc
+           mingw64-gcc-c++
+           mingw64-gettext
+           mingw64-libewf
+           mingw64-libjpeg-turbo
+           mingw64-ntfsprogs
+           mingw64-openssl
+           mingw64-pdcurses
+           mingw64-qt5-qtbase-devel
+           mingw64-qt5-qttools-tools
+           mingw64-win-iconv
+           mingw64-zlib
+      - name: Configure
         run: |
-          cd ${GITHUB_WORKSPACE}
-          mkdir build_ntfs3g
-          wget http://prdownloads.sourceforge.net/linux-ntfs/ntfsprogs-${VER_NTFSPROGS}.tar.gz
-          tar xzf ntfsprogs-${VER_NTFSPROGS}.tar.gz -C build_ntfs3g/
-          cd build_ntfs3g/ntfsprogs-${VER_NTFSPROGS}
-          ./configure CFLAGS="-Wno-implicit -DHAVE_FFS -US_IFLNK -US_ISLNK -US_IFSOCK -US_ISSOCK" --disable-default-device-io-ops --disable-crypto
-          make
-          make install
-      - run: |
-          cd ${GITHUB_WORKSPACE}
-          chmod +x autogen.sh
-          ./autogen.sh
-      - run: |
-          cd ${GITHUB_WORKSPACE}
-          chmod +x compile.sh
-          ./compile.sh
+          autoreconf -vif -I config -W all
+          mingw64-configure --enable-missing-uuid-ok
+      - name: Build
+        run: |
+          mingw64-make
