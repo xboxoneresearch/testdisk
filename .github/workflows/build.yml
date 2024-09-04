@@ -11,7 +11,7 @@ jobs:
       - name: Install dnf plugins core
         run: dnf install -y dnf-plugins-core
       - name: Enable testdisk mingw-testdisk repo
-        run: dnf copr enable grenier/mingw-testdisk
+        run: dnf copr enable -y grenier/mingw-testdisk
       - name: Install dependencies
         run: >-
           dnf install -y
