@@ -41,9 +41,12 @@ jobs:
       - name: Build
         run: |
           mingw64-make
+      - name: Copy to release dir
+        run: |
+          mkdir release/
+          cp src/*.exe release/
+          cp /usr/x86_64-w64-mingw32/sys-root/mingw/bin/{libjpeg-62,zlib1,libewf-2,pdcurses,iconv}.dll release/
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: |
-            src/*.exe
-            /usr/x86_64-w64-mingw32/sys-root/mingw/bin/*.dll
+          path: release/**
