@@ -153,12 +153,12 @@ typedef struct __attribute__((gcc_struct, __packed__)) xvd_header
 ///////////////////////////////////////
 // METHOD PREDEFINITIONS
 ///////////////////////////////////////
-uint64_t FindEmbeddedXVDSize(const xvd_header* header, const char* filename);
-uint64_t FindMDUSize(const xvd_header* header, const char* filename);
+uint64_t FindEmbeddedXVDSize(const xvd_header* header);
+uint64_t FindMDUSize(const xvd_header* header);
 uint64_t FindHashTreeSize(const xvd_header* header, const char* filename);
-uint64_t FindUserDataSize(const xvd_header* header, const char* filename);
-uint64_t FindXVCSize(const xvd_header* header, const char* filename);
-uint64_t FindDynHeaderSize(const xvd_header* header, const char* filename);
+uint64_t FindUserDataSize(const xvd_header* header);
+uint64_t FindXVCSize(const xvd_header* header);
+uint64_t FindDynHeaderSize(const xvd_header* header);
 uint64_t FindDriveSize(const xvd_header* header, const char* filename);
 uint64_t FindDynamicOccupancy(const xvd_header* header, const char* filename);
 uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient);
@@ -256,8 +256,8 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
         hashed_pages = BytesToPages(
                                 FindDriveSize(header, filename)    
                                 + FindUserDataSize(header, filename)
-                                + FindXVCSize(header, filename)
-                                + FindDynHeaderSize(header, filename));
+                                + FindXVCSize(header)
+                                + FindDynHeaderSize(header));
 
         // Compute the size that the HashTree will have
         return HashTreeSizeFromPageNum(hashed_pages, has_resiliency_en);
@@ -289,6 +289,7 @@ uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient)
     // For a writeup of how this work check the XVDLith project (coming soon)
 
     // Count of how many pages each tree will be in size. See explanation above
+    bool is_exact_division;
     size_t total_hashtree_pages = 0;
     size_t pages_of_level[4] = {0, 0, 0, 0};
     #define LVL_0 0
@@ -299,7 +300,7 @@ uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient)
     #define HASHES_PER_PAGE 170
     
     // Compute the size of level 0, the leaf/data level
-    bool is_exact_division = (num_pages_to_hash % 170) == 0;
+    is_exact_division = (num_pages_to_hash % 170) == 0;
     pages_of_level[LVL_0]  = (num_pages_to_hash / 170) + (is_exact_division ? 0 : 1);
 
     // If this level is already enough, down to one page, it's possible to compute the root hash so the HashTree ends here.
@@ -369,7 +370,7 @@ uint64_t FindUserDataPosition(const xvd_header* header, const char* filename)
     return FindHashTreePosition(header) + FindHashTreeSize(header, filename);
 }
 
-uint64_t FindUserDataSize(const xvd_header* header, const char* filename)
+uint64_t FindUserDataSize(const xvd_header* header)
 {
     return AlignSizeToPageBoundary(header->user_data_length); // UserData seemed to require alignment for the computations, yep
 }
@@ -379,10 +380,10 @@ uint64_t FindUserDataSize(const xvd_header* header, const char* filename)
 //////////////////////////////////////////
 uint64_t FindXVCPosition(const xvd_header* header, const char* filename)
 {
-    return FindUserDataPosition(header, filename) + FindUserDataSize(header, filename);
+    return FindUserDataPosition(header, filename) + FindUserDataSize(header);
 }
 
-uint64_t FindXVCSize(const xvd_header* header, const char* filename)
+uint64_t FindXVCSize(const xvd_header* header)
 {
     return AlignSizeToPageBoundary(header->xvc_data_length); // Alignment here might or might not be needed, but adding it just in case
 }
@@ -395,10 +396,10 @@ uint64_t FindXVCSize(const xvd_header* header, const char* filename)
 //////////////////////////////////////////
 uint64_t FindDynHeaderPosition(const xvd_header* header, const char* filename)
 {
-    return FindXVCPosition(header, filename) + FindXVCSize(header, filename);
+    return FindXVCPosition(header, filename) + FindXVCSize(header);
 }
 
-uint64_t FindDynHeaderSize(const xvd_header* header, const char* filename)
+uint64_t FindDynHeaderSize(const xvd_header* header)
 {
     return header->dynamic_header_length; // NO Alignment 
 }
@@ -410,10 +411,10 @@ uint64_t FindDrivePosition(const xvd_header* header, const char* filename)
 {
     // If dynamic XVD, the drive will be after the DynHeader
     if(header->xvd_type == DYNAMIC)
-        return FindDynHeaderPosition(header, filename) + FindDynHeaderSize(header, filename);
+        return FindDynHeaderPosition(header, filename) + FindDynHeaderSize(header);
 
     // If static XVD, the drive will be after the XVC_REGION
-    return FindXVCPosition(header, filename) + FindXVCSize(header, filename);
+    return FindXVCPosition(header, filename) + FindXVCSize(header);
 }
 
 uint64_t FindDriveSize(const xvd_header* header, const char* filename)
@@ -520,9 +521,9 @@ static int header_check_xvd(const unsigned char *buffer, const unsigned int buff
           FindEmbeddedXVDSize(xvd)            +  // Size of the embedded XVD
           FindMDUSize(xvd)                    +  // Size of mutable XVC info
           FindHashTreeSize(xvd, filename)     +  // Size of the HashTree
-          FindUserDataSize(xvd, filename)     +  // Size of user data region
-          FindXVCSize(xvd, filename)          +  // Size of XVC Region
-          FindDynHeaderSize(xvd, filename)    +  // This will be 0 anyways since it's a fixed XVD...
+          FindUserDataSize(xvd)     +  // Size of user data region
+          FindXVCSize(xvd)                    +  // Size of XVC Region
+          FindDynHeaderSize(xvd)              +  // This will be 0 anyways since it's a fixed XVD...
           FindDriveSize(xvd, filename)           // Size of the static Drive
       );
   }
