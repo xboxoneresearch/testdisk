@@ -27,6 +27,7 @@
 #endif
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "types.h"
 #include "filegen.h"
 #include "common.h"
@@ -52,20 +53,6 @@ const file_hint_t file_hint_xvd= {
   .enable_by_default=1,
   .register_header_check=&register_header_check_xvd
 };
-
-///////////////////////////////////////
-// METHOD PREDEFINITIONS
-///////////////////////////////////////
-uint64_t FindEmbeddedXVDSize(const xvd_header* header, const char* filename);
-uint64_t FindMDUSize(const xvd_header* header, const char* filename);
-uint64_t FindHashTreeSize(const xvd_header* header, const char* filename);
-uint64_t FindUserDataSize(const xvd_header* header, const char* filename);
-uint64_t FindXVCSize(const xvd_header* header, const char* filename);
-uint64_t FindDynHeaderSize(const xvd_header* header, const char* filename);
-uint64_t FindDriveSize(const xvd_header* header, const char* filename);
-uint64_t FindDynamicOccupancy(const xvd_header* header, const char* filename);
-uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient);
-
 
 //////////////////////////////////////////
 // AUXILIARY METHODS                    //
@@ -162,6 +149,19 @@ typedef struct __attribute__((gcc_struct, __packed__)) xvd_header
   // ... rest of the header is not needed for XVD recovery scenario ...
 } xvd_header;
 
+///////////////////////////////////////
+// METHOD PREDEFINITIONS
+///////////////////////////////////////
+uint64_t FindEmbeddedXVDSize(const xvd_header* header, const char* filename);
+uint64_t FindMDUSize(const xvd_header* header, const char* filename);
+uint64_t FindHashTreeSize(const xvd_header* header, const char* filename);
+uint64_t FindUserDataSize(const xvd_header* header, const char* filename);
+uint64_t FindXVCSize(const xvd_header* header, const char* filename);
+uint64_t FindDynHeaderSize(const xvd_header* header, const char* filename);
+uint64_t FindDriveSize(const xvd_header* header, const char* filename);
+uint64_t FindDynamicOccupancy(const xvd_header* header, const char* filename);
+uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient);
+
 //////////////////////////////////////////
 // XVD Header parsing methods           //
 //////////////////////////////////////////
@@ -234,7 +234,7 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
 
     // The size of the HashTree depends pretty much on the size of
     // the data that it hashes. In other words, the more data pages
-    // that need to be hashed, the bigger the HashTree would be.
+    // that need to be hashed, the bigger the HashTree will be.
 
     // Most specifically, the following regions seem to be being hashed:
     // - Drive
@@ -244,7 +244,7 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
 
     // So the first step is to find the size of each region (in disk) in
     // pages. For a static XVD we can just read them from the headers:
-    if(header->xvd_type == XvdType::FIXED)
+    if(header->xvd_type == FIXED)
     {
         uint32_t hashed_pages = BytesToPages(
                                 FindDriveSize(header, filename)    
@@ -260,19 +260,11 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
     {
         // In the case of a Dynamic XVD, we have to "estimate" the sizes
         // of the BAT+UserData+XVC+Drive, since we cannot trust the values in the
-        // header (for some reason these don't yield right values).
-        // Once those sizes are estimated, we can compute the size of the HashTree.
-
-        // We could use the value of header->drive_size because although it represents
-        // the MAXIMUM allocated size of this virtual drive, the hash_tree seems to be
-        // allocated for that maximum size, and not the actual occupancy on the physical file in disk.
-        // PENDING: So are parts of the HashTree region just empty?
+        // header as the 'drive_size' represent the maximum storage, not the current occupancy.
 
         // Compute the size of drive + userdata + xvc from the DynHeader size in the header
         uint64_t bat_entries = header->dynamic_header_length / BAT_ENTRY_SIZE;
         uint64_t total_blocks_mapped = bat_entries;
-
-        // Need to find how many of those blocks are actually allocated... 
 
         // 2. Compute the estimated size of the HashTree given the BAT size.
         //    In disk, the computed space must end up being page aligned!
@@ -519,6 +511,12 @@ static int header_check_xvd(const unsigned char *buffer, const unsigned int buff
   reset_file_recovery(file_recovery_new);
   file_recovery_new->extension=file_hint_xvd.extension;
 
+  // TODO/IMPROVEMENT: We might be able to set the filename to the XVD's PDUID instead of the random filename PhotoRec assigns
+  //file_recovery->filename 
+
+  // TODO/IMPROVEMENT: We might be able to set the filename extension to .xvd
+  //file_recovery->extension 
+
   // Compute the expected XVD size
   if(xvd->xvd_type == FIXED)
   {
@@ -561,6 +559,12 @@ static int header_check_xvd(const unsigned char *buffer, const unsigned int buff
 static void register_header_check_xvd(file_stat_t *file_stat)
 {
   static const unsigned char xvd_header[8]=  { 'm' , 's' , 'f' , 't', '-', 'x', 'v', 'd' };
+  
+  //TODO: Figure how to pass the BAT offset to the function that parses the header
+  // Can we do a pre-parse in this method, compute the BAT address, and pass a buffer
+  // big enough to contain it? For dynamic XVDs we need it to discover the actual file
+  // size, which is based on occupancy.
+
   register_header_check(0x200, xvd_header, sizeof(xvd_header), &header_check_xvd, file_stat);
 }
 #endif
