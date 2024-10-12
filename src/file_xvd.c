@@ -258,7 +258,6 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
                                 + FindUserDataSize(header, filename)
                                 + FindXVCSize(header, filename)
                                 + FindDynHeaderSize(header, filename));
-        //printf("#hashed_pages: %ld\n", hashed_pages);
 
         // Compute the size that the HashTree will have
         return HashTreeSizeFromPageNum(hashed_pages, has_resiliency_en);
@@ -339,7 +338,7 @@ uint64_t HashTreeSizeFromPageNum(uint64_t num_pages_to_hash, bool resilient)
     // XVD Does not really support more than 3 levels, so if there exists a level 3, it MUST be finally only one page in size.
     // Let's actually check for that, to make sure nothing went wrong.
     total_hashtree_pages += pages_of_level[LVL_3];
-    if(pages_of_level[LVL_3] != 1) [[unlikely]]
+    if(pages_of_level[LVL_3] != 1)
     {
         printf("Here be dragons!!! BUG!\n");
     }
@@ -385,12 +384,6 @@ uint64_t FindXVCPosition(const xvd_header* header, const char* filename)
 
 uint64_t FindXVCSize(const xvd_header* header, const char* filename)
 {
-
-    if(AlignSizeToPageBoundary(header->xvc_data_length) != header->xvc_data_length)
-    {
-        printf("INFO: xvc_data_length alignment problem - should probably not use alignment\n");
-    }
-
     return AlignSizeToPageBoundary(header->xvc_data_length); // Alignment here might or might not be needed, but adding it just in case
 }
 
@@ -425,13 +418,6 @@ uint64_t FindDrivePosition(const xvd_header* header, const char* filename)
 
 uint64_t FindDriveSize(const xvd_header* header, const char* filename)
 {
-    // Test stuff
-    if(AlignSizeToPageBoundary(header->drive_size) != header->drive_size)
-    {
-        printf("found alignment problem - working w/o alignment\n");
-        return header->drive_size;
-    }
-
     if(header->xvd_type == FIXED)
         return AlignSizeToPageBoundary(header->drive_size);
     else
@@ -452,10 +438,7 @@ uint64_t FindDynamicOccupancy(const xvd_header* header, const char* filename)
     int      curr_entry          = 0;
     uint64_t bat_entries         = bat_size / 4;
 
-    // This will actually return just the max, since it takes into account the drive_size which is a maximum
-    //return ((header->dynamic_header_length / BAT_ENTRY_SIZE) * 0xAA000);
-
-    // TODO PHOTOREC: Move this logic elsewhere
+    // vvvvv TODO PHOTOREC: Move this logic elsewhere vvvvv
 
     // 1. Find the BAT offset. This is now possible since we know the sizes of all previous regions (especially the HashTree)
     //     HashTree comes always after MDU and then we have user data, XVC, and finally we'd reach the BAT start offset.
