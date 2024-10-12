@@ -27,6 +27,7 @@
 #endif
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include "types.h"
 #include "filegen.h"
@@ -227,6 +228,12 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
     // If data integrity is disabled, resiliency doesn't make any sense
     bool data_integrity_en  = !(header->flags.DataIntegrityDisabled);
     bool has_resiliency_en  = header->flags.resiliency_en;
+    bool     exact_division = false;
+    uint32_t hashed_pages  = 0;
+    uint64_t bat_entries   = 0;
+    uint64_t total_blocks_mapped = 0;
+    uint64_t size_bytes    = 0;
+    uint64_t size_in_pages = 0;
 
     // If data integrity isn't enabled, there isn't a HashTree! Duh!
     if(!data_integrity_en)
@@ -246,7 +253,7 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
     // pages. For a static XVD we can just read them from the headers:
     if(header->xvd_type == FIXED)
     {
-        uint32_t hashed_pages = BytesToPages(
+        hashed_pages = BytesToPages(
                                 FindDriveSize(header, filename)    
                                 + FindUserDataSize(header, filename)
                                 + FindXVCSize(header, filename)
@@ -263,16 +270,16 @@ uint64_t FindHashTreeSize(const xvd_header* header, const char* filename)
         // header as the 'drive_size' represent the maximum storage, not the current occupancy.
 
         // Compute the size of drive + userdata + xvc from the DynHeader size in the header
-        uint64_t bat_entries = header->dynamic_header_length / BAT_ENTRY_SIZE;
-        uint64_t total_blocks_mapped = bat_entries;
+        bat_entries = header->dynamic_header_length / BAT_ENTRY_SIZE;
+        total_blocks_mapped = bat_entries;
 
         // 2. Compute the estimated size of the HashTree given the BAT size.
         //    In disk, the computed space must end up being page aligned!
-        uint64_t size_bytes = BlocksToBytes(total_blocks_mapped); 
+        size_bytes = BlocksToBytes(total_blocks_mapped); 
         size_bytes = AlignSizeToPageBoundary(size_bytes);
 
-        bool     exact_division = (size_bytes % XVD_PAGE_SIZE) == 0;
-        uint64_t size_in_pages = (size_bytes) / XVD_PAGE_SIZE + (exact_division ? 0 : 1);
+        exact_division = (size_bytes % XVD_PAGE_SIZE) == 0;
+        size_in_pages = (size_bytes) / XVD_PAGE_SIZE + (exact_division ? 0 : 1);
         return HashTreeSizeFromPageNum(size_in_pages, has_resiliency_en);
     }
 }
@@ -433,39 +440,43 @@ uint64_t FindDriveSize(const xvd_header* header, const char* filename)
 
 uint64_t FindDynamicOccupancy(const xvd_header* header, const char* filename)
 {
+    // Local variables
+    char*    bat_data;
+    FILE*    f;
+    uint64_t bat_size  = header->dynamic_header_length;
+
+    uint32_t entry               = 0;
+    uint32_t max_entry           = 0;
+    size_t   unallocated_entries = 0;
+    size_t   allocated_entries   = 0;
+    int      curr_entry          = 0;
+    uint64_t bat_entries         = bat_size / 4;
+
     // This will actually return just the max, since it takes into account the drive_size which is a maximum
     //return ((header->dynamic_header_length / BAT_ENTRY_SIZE) * 0xAA000);
 
-    // 3. Find the BAT offset. This is now possible since we know the sizes of all previous regions (especially the HashTree)
+    // TODO PHOTOREC: Move this logic elsewhere
+
+    // 1. Find the BAT offset. This is now possible since we know the sizes of all previous regions (especially the HashTree)
     //     HashTree comes always after MDU and then we have user data, XVC, and finally we'd reach the BAT start offset.
     uint64_t bat_start = FindHashTreePosition(header) + FindHashTreeSize(header, filename) + 
                     + header->user_data_length 
                     + header->xvc_data_length;
 
-    uint64_t bat_size  = header->dynamic_header_length;
-
-    printf("bat_start: 0x%16x\n", bat_start);
-    printf("bat_size:  0x%16x\n", bat_size);
-
-    // 4. Iterate through the BAT entries and find the biggest valid entry. This basically maps the latest (bigger) block of the physical file.
-    FILE *f = fopen(filename, "rb");
+    // 2. Iterate through the BAT entries and find the biggest valid entry. This basically maps the latest (bigger) block of the physical file.
+    f = fopen(filename, "rb");
     if (f == NULL) {
         fprintf(stderr, "ERR: Failed to open file '%s'!\n", filename);
         return 2;
     }
     // Allocate a buffer to read the BAT
-    char *bat_data = (char *)calloc(1, bat_size);
+    bat_data = (char *)calloc(1, bat_size);
     fseek(f, bat_start, SEEK_SET);
     fread(bat_data, 1, bat_size, f);
     fclose(f);
 
     // Start iterating until last valid BAT entry is found.
     // Each block is mapped by one entry. There are as many entries as blocks
-    uint32_t max_entry = 0;
-    size_t   unallocated_entries = 0;
-    size_t   allocated_entries   = 0;
-    int      curr_entry = 0;
-    uint64_t bat_entries = bat_size / 4;
     for(curr_entry; curr_entry < bat_entries; curr_entry++)
     {
         // Invalid entry found. Ignore it
@@ -558,13 +569,13 @@ static int header_check_xvd(const unsigned char *buffer, const unsigned int buff
 
 static void register_header_check_xvd(file_stat_t *file_stat)
 {
-  static const unsigned char xvd_header[8]=  { 'm' , 's' , 'f' , 't', '-', 'x', 'v', 'd' };
+  static const unsigned char xvd_magic[8]=  { 'm' , 's' , 'f' , 't', '-', 'x', 'v', 'd' };
   
   //TODO: Figure how to pass the BAT offset to the function that parses the header
   // Can we do a pre-parse in this method, compute the BAT address, and pass a buffer
   // big enough to contain it? For dynamic XVDs we need it to discover the actual file
   // size, which is based on occupancy.
 
-  register_header_check(0x200, xvd_header, sizeof(xvd_header), &header_check_xvd, file_stat);
+  register_header_check(0x200, xvd_magic, sizeof(xvd_magic), &header_check_xvd, file_stat);
 }
 #endif
